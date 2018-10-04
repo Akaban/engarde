@@ -111,6 +111,28 @@ def is_shape(df, shape):
         raise
     return df
 
+def unique_pkey(df, columns=None):
+    """
+    Asserts that DataFrame is unique with respect to primary key columns.
+
+    Parameters
+    ----------
+    df : DataFrame
+    columns : list
+        primary key dataframe should be unique on
+
+    Returns
+    -------
+    df : DataFrame
+        same as original
+    """
+
+    if columns is None:
+        raise ValueError("You did not specify primary key for unique_key")
+    if df.duplicated(subset=columns).any():
+        raise AssertionError("DataFrame is not unique with respect to"
+                             "primary key {pkey}".format(pkey=columns))
+    return df
 
 def unique(df, columns=None):
     """

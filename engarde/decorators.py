@@ -28,6 +28,20 @@ def is_shape(shape):
     return decorate
 
 
+def unique_pkey(columns=None):
+    """
+    Asserts that DataFrame is unique with respect to its primary key columns
+    """
+    def decorate(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            result = func(*args, **kwargs)
+            ck.unique_pkey(result, columns=columns)
+            return result
+        return wrapper
+    return decorate
+
+
 def unique(columns=None):
     """
     Asserts that columns in the DataFrame only have unique values.
@@ -40,7 +54,6 @@ def unique(columns=None):
             return result
         return wrapper
     return decorate
-
 
 def unique_index():
     def decorate(func):
@@ -191,4 +204,3 @@ __all__ = ['is_monotonic', 'is_same_as', 'is_shape', 'none_missing',
            'unique_index', 'within_range', 'within_set', 'has_dtypes',
            'verify', 'verify_all', 'verify_any', 'within_n_std',
            'one_to_many','is_same_as',]
-
