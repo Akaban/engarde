@@ -130,7 +130,7 @@ def unique_pkey(df, columns=None):
     if columns is None:
         raise ValueError("You did not specify primary key for unique_key")
     if df.duplicated(subset=columns).any():
-        raise AssertionError("DataFrame is not unique with respect to"
+        raise AssertionError("DataFrame is not unique with respect to "
                              "primary key {pkey}".format(pkey=columns))
     return df
 

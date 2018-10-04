@@ -36,8 +36,12 @@ def unique_pkey(columns=None):
         @wraps(func)
         def wrapper(*args, **kwargs):
             result = func(*args, **kwargs)
-            ck.unique_pkey(result, columns=columns)
-            return result
+            try:
+                ck.unique_pkey(result, columns=columns)
+                return result
+            except AssertionError as e:
+                step_name = func.__name__
+                raise AssertionError("Step {} broke an invariant".format(step_name)) from e
         return wrapper
     return decorate
 
