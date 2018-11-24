@@ -3,67 +3,60 @@
 Module for useful generic functions.
 """
 from itertools import chain, cycle
+from functools import update_wrapper, wraps
+import inspect
 
 import numpy as np
 import pandas as pd
 
 
-# --------------
-# Generic verify
-# --------------
+# Exception
 
-def verify(df, check, *args, **kwargs):
-    """
-    Generic verify. Assert that ``check(df, *args, **kwargs)`` is
-    true.
+class InvariantAssertionError(AssertionError):
+    def __init__(self, *args, input_dataframe=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._input_dataframe = input_dataframe
 
-    Parameters
-    ==========
-    df : DataFrame
-    check : function
-        Should take DataFrame and **kwargs. Returns bool
 
-    Returns
-    =======
-    df : DataFrame
-        same as the input.
-    """
-    result = check(df, *args, **kwargs)
-    try:
-        assert result
-    except AssertionError as e:
-        msg = '{} is not true'.format(check.__name__)
-        e.args = (msg, df)
-        raise
-    return df
+def check_decorator(check):
+    """Decorator that provides the power for a check function
+    to automatically decorates any function that returns a pd.DataFrame.
 
-def verify_all(df, check, *args, **kwargs):
+    The returned object will behave just like the check function but
+    it provides an extra 'as_decorator' method that returns the according
+    decorator.
     """
-    Verify that all the entries in ``check(df, *args, **kwargs)``
-    are true.
-    """
-    result = check(df, *args, **kwargs)
-    try:
-        assert np.all(result)
-    except AssertionError as e:
-        msg = "{} not true for all".format(check.__name__)
-        e.args = (msg, df[~result])
-        raise
-    return df
+    class CheckDecorator:
+        def __init__(self, check):
+            self.check = check
+            update_wrapper(self, check)
 
-def verify_any(df, check, *args, **kwargs):
-    """
-    Verify that any of the entries in ``check(df, *args, **kwargs)``
-    is true
-    """
-    result = check(df, *args, **kwargs)
-    try:
-        assert np.any(result)
-    except AssertionError as e:
-        msg = '{} not true for any'.format(check.__name__)
-        e.args = (msg, df)
-        raise
-    return df
+        def __call__(self, *args, **check_kwargs):
+            return self.check(*args, **check_kwargs)
+
+        def __repr__(self):
+            return ("<function {module}.{function}{signature}>"
+                    .format(module=self.__module__,
+                            function=self.__name__,
+                            signature=inspect.signature(self.check))
+                    )
+
+        def as_decorator(self, *check_args, **check_kwargs):
+            @wraps(self.check)
+            def func_wrapper(func):
+                def args_wrapper(*args, **kwargs):
+                    result = func(*args, **kwargs)
+                    try:
+                        self.check(result, *check_args, **check_kwargs)
+                        return result
+                    except AssertionError as e:
+                        raise InvariantAssertionError(
+                            ("Function '{function}' broke an invariant"
+                             .format(function=func.__name__))) from e
+                return args_wrapper
+            return func_wrapper
+    return CheckDecorator(check)
+
 
 # ---------------
 # Error reporting
@@ -77,4 +70,3 @@ def bad_locations(df):
     return msg
 
 __all__ = ['verify', 'verify_all', 'verify_any', 'bad_locations']
-

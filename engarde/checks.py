@@ -14,9 +14,10 @@ import pandas.util.testing as tm
 import six
 
 from engarde import generic
-from engarde.generic import verify, verify_all, verify_any
+from engarde.generic import InvariantAssertionError
+from engarde.generic import check_decorator
 
-
+@check_decorator
 def none_missing(df, columns=None):
     """
     Asserts that there are no missing values (NaNs) in the DataFrame.
@@ -43,6 +44,7 @@ def none_missing(df, columns=None):
         raise
     return df
 
+@check_decorator
 def is_monotonic(df, items=None, increasing=None, strict=False):
     """
     Asserts that the DataFrame is monotonic.
@@ -84,6 +86,7 @@ def is_monotonic(df, items=None, increasing=None, strict=False):
             raise AssertionError
     return df
 
+@check_decorator
 def is_shape(df, shape):
     """
     Asserts that the DataFrame is of a known shape.
@@ -111,29 +114,7 @@ def is_shape(df, shape):
         raise
     return df
 
-def unique_pkey(df, columns=None):
-    """
-    Asserts that DataFrame is unique with respect to primary key columns.
-
-    Parameters
-    ----------
-    df : DataFrame
-    columns : list
-        primary key dataframe should be unique on
-
-    Returns
-    -------
-    df : DataFrame
-        same as original
-    """
-
-    if columns is None:
-        raise ValueError("You did not specify primary key for unique_key")
-    if df.duplicated(subset=columns).any():
-        raise AssertionError("DataFrame is not unique with respect to "
-                             "primary key {pkey}".format(pkey=columns))
-    return df
-
+@check_decorator
 def unique(df, columns=None):
     """
     Asserts that columns in the DataFrame only have unique values.
@@ -156,7 +137,7 @@ def unique(df, columns=None):
             raise AssertionError("Column {!r} contains non-unique values".format(col))
     return df
 
-
+@check_decorator
 def unique_index(df):
     """
     Assert that the index is unique
@@ -176,7 +157,7 @@ def unique_index(df):
         raise
     return df
 
-
+@check_decorator
 def within_set(df, items=None):
     """
     Assert that df is a subset of items
@@ -198,6 +179,7 @@ def within_set(df, items=None):
             raise AssertionError('Not in set', bad)
     return df
 
+@check_decorator
 def within_range(df, items=None):
     """
     Assert that a DataFrame is within a range.
@@ -219,6 +201,7 @@ def within_range(df, items=None):
             raise AssertionError("Outside range", bad)
     return df
 
+@check_decorator
 def within_n_std(df, n=3):
     """
     Assert that every value is within ``n`` standard
@@ -242,6 +225,7 @@ def within_n_std(df, n=3):
         raise AssertionError(msg)
     return df
 
+@check_decorator
 def has_dtypes(df, items):
     """
     Assert that a DataFrame has ``dtypes``
@@ -262,7 +246,7 @@ def has_dtypes(df, items):
             raise AssertionError("{} has the wrong dtype. Should be ({}), is ({})".format(k, v,dtypes[k]))
     return df
 
-
+@check_decorator
 def one_to_many(df, unitcol, manycol):
     """
     Assert that a many-to-one relationship is preserved between two
@@ -294,6 +278,7 @@ def one_to_many(df, unitcol, manycol):
     return df
 
 
+@check_decorator
 def is_same_as(df, df_to_compare, **kwargs):
     """
     Assert that two pandas dataframes are the equal
@@ -316,8 +301,87 @@ def is_same_as(df, df_to_compare, **kwargs):
         six.raise_from(AssertionError("DataFrames are not equal"), exc)
     return df
 
+@check_decorator
+def unique_pkey(df, columns=None):
+    """
+    Asserts that DataFrame is unique with respect to primary key columns.
+    Parameters
+    ----------
+    df : DataFrame
+    columns : list
+        primary key dataframe should be unique on
+    Returns
+    -------
+    df : DataFrame
+        same as original
+    """
+
+    if columns is None:
+        raise ValueError("You did not specify primary key for unique_key")
+    if df.duplicated(subset=columns).any():
+        raise InvariantAssertionError(
+            "DataFrame is not unique with respect to "
+            "primary key {pkey}".format(pkey=columns),
+            input_dataframe=df)
+    return df
+
+@check_decorator
+def verify(df, check, *args, **kwargs):
+    """
+    Generic verify. Assert that ``check(df, *args, **kwargs)`` is
+    true.
+
+    Parameters
+    ==========
+    df : DataFrame
+    check : function
+        Should take DataFrame and **kwargs. Returns bool
+
+    Returns
+    =======
+    df : DataFrame
+        same as the input.
+    """
+    result = check(df, *args, **kwargs)
+    try:
+        assert result
+    except AssertionError as e:
+        msg = '{} is not true'.format(check.__name__)
+        e.args = (msg, df)
+        raise
+    return df
+
+@check_decorator
+def verify_all(df, check, *args, **kwargs):
+    """
+    Verify that all the entries in ``check(df, *args, **kwargs)``
+    are true.
+    """
+    result = check(df, *args, **kwargs)
+    try:
+        assert np.all(result)
+    except AssertionError as e:
+        msg = "{} not true for all".format(check.__name__)
+        e.args = (msg, df[~result])
+        raise
+    return df
+
+@check_decorator
+def verify_any(df, check, *args, **kwargs):
+    """
+    Verify that any of the entries in ``check(df, *args, **kwargs)``
+    is true
+    """
+    result = check(df, *args, **kwargs)
+    try:
+        assert np.any(result)
+    except AssertionError as e:
+        msg = '{} not true for any'.format(check.__name__)
+        e.args = (msg, df)
+        raise
+    return df
 
 __all__ = ['is_monotonic', 'is_same_as', 'is_shape', 'none_missing',
            'unique_index', 'within_n_std', 'within_range', 'within_set',
            'has_dtypes', 'verify', 'verify_all', 'verify_any',
-           'one_to_many','is_same_as',]
+           'one_to_many','is_same_as','unique_pkey',]
