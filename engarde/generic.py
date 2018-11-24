@@ -17,48 +17,29 @@ class InvariantAssertionError(AssertionError):
         super().__init__(*args, **kwargs)
         self._input_dataframe = input_dataframe
 
+# Decorator
 
-def check_decorator(check):
-    """Decorator that provides the power for a check function
-    to automatically decorates any function that returns a pd.DataFrame.
-
-    The returned object will behave just like the check function but
-    it provides an extra 'as_decorator' method that returns the according
-    decorator.
+def as_decorator(check):
+    """Decorator that provides the power for a check function to
+    decorates any function that returns a pd.DataFrame
     """
-    class CheckDecorator:
-        def __init__(self, check):
-            self.check = check
-            update_wrapper(self, check)
-
-        def __call__(self, *args, **check_kwargs):
-            return self.check(*args, **check_kwargs)
-
-        def __repr__(self):
-            return ("<function {module}.{function}{signature}>"
-                    .format(module=self.__module__,
-                            function=self.__name__,
-                            signature=inspect.signature(self.check))
-                    )
-
-        def as_decorator(self, *check_args, **check_kwargs):
-            @wraps(self.check)
-            def func_wrapper(func):
-                def args_wrapper(*args, **kwargs):
-                    result = func(*args, **kwargs)
-                    try:
-                        self.check(result, *check_args, **check_kwargs)
-                        return result
-                    except AssertionError as e:
-                        raise InvariantAssertionError(
-                            ("Function '{function}' broke an invariant"
-                             .format(function=func.__name__))) from e
-                return args_wrapper
-            return func_wrapper
-    return CheckDecorator(check)
+    def check_wrapper(*check_args, **check_kwargs):
+        @wraps(check)
+        def func_wrapper(func):
+            def args_wrapper(*args, **kwargs):
+                result = func(*args, **kwargs)
+                try:
+                    check(result, *check_args, **check_kwargs)
+                    return result
+                except AssertionError as e:
+                    raise InvariantAssertionError(
+                        ("Function '{function}' broke an invariant"
+                         .format(function=func.__name__))) from e
+            return args_wrapper
+        return func_wrapper
+    return check_wrapper
 
 
-# ---------------
 # Error reporting
 # ---------------
 
